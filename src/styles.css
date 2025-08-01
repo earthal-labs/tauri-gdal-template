@@ -1,0 +1,204 @@
+.logo.vite:hover {
+  filter: drop-shadow(0 0 2em #747bff);
+}
+
+.logo.tauri:hover {
+  filter: drop-shadow(0 0 2em #24c8db);
+}
+
+.logo.gdal:hover {
+  filter: drop-shadow(0 0 2em #359946);
+}
+
+.logo.typescript:hover {
+  filter: drop-shadow(0 0 2em #2d79c7);
+}
+
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  color: #f6f6f6;
+  background-color: #2f2f2f;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+.container {
+  margin: 0;
+  padding-top: 10vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: 0.75s;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #24c8db;
+}
+
+h1 {
+  text-align: center;
+}
+
+/* GDAL Section */
+.gdal-section {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gdal-status h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #68d391;
+}
+
+.gdal-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.gdal-item {
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.gdal-item strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.formats-toggle {
+  margin-left: auto;
+  position: relative;
+}
+
+.formats-toggle summary {
+  cursor: pointer;
+  color: #63b3ed;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #4a5568;
+  background: #2d3748;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.formats-toggle summary:hover {
+  background: #4a5568;
+  border-color: #718096;
+  color: #90cdf4;
+}
+
+.formats-list {
+  position: absolute;
+  z-index: 10;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  max-height: 120px;
+  width: 300px;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  right: 0;
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #4a5568 20%, #4a5568 80%, transparent);
+  margin: 2rem 0;
+}
+
+.dataset-analysis {
+  text-align: center;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.dataset-analysis button {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #276749 0%, #38a169 100%);
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.dataset-analysis button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2f855a 0%, #48bb78 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.dataset-analysis button:disabled {
+  background: #4a5568;
+  cursor: not-allowed;
+}
+
+.coffee-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #f87171;
+  background: transparent;
+  border: none;
+  width: 48px;
+  height: 48px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.coffee-btn:hover {
+  color: #fca5a5;
+  transform: scale(1.1);
+}

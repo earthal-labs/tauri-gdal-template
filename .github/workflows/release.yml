@@ -1,0 +1,431 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    name: Build Linux Application
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+          
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          
+      - name: Install Pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | bash
+          echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+          
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        
+      - name: Install system dependencies for Linux
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libgirepository1.0-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libglib2.0-0 \
+            libgobject-2.0-0 \
+            libgio-2.0-0 \
+            fuse \
+            libfuse2 \
+            desktop-file-utils \
+            xdg-utils \
+            patchelf \
+            appstream \
+            appstream-util \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            gstreamer1.0-tools
+          
+          # Force install and configure GTK libraries
+          echo "[INFO] Installing and configuring GTK libraries..."
+          sudo apt install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            librsvg2-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            gtk-3-examples \
+            gtk-update-icon-cache
+          
+          # Update library cache
+          sudo ldconfig
+          
+          # Verify pkg-config files are actually installed
+          echo "[INFO] Verifying pkg-config files..."
+          find /usr -name "*.pc" -path "*/pkgconfig/*" | grep -E "(glib|gio|gobject|gtk|rsvg)" | head -20
+          
+          # Check specific problematic files
+          echo "[INFO] Checking specific pkg-config files..."
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/glib-2.0.pc || echo "[ERROR] glib-2.0.pc not found"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/gio-2.0.pc || echo "[ERROR] gio-2.0.pc not found"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/gobject-2.0.pc || echo "[ERROR] gobject-2.0.pc not found"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/gtk+-3.0.pc || echo "[ERROR] gtk+-3.0.pc not found"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/librsvg-2.0.pc || echo "[ERROR] librsvg-2.0.pc not found"
+          
+          # Check for gtk-query-immodules-3.0
+          echo "[INFO] Checking for gtk-query-immodules-3.0..."
+          which gtk-query-immodules-3.0 || echo "[ERROR] gtk-query-immodules-3.0 not found"
+          find /usr -name "gtk-query-immodules-3.0" 2>/dev/null || echo "[ERROR] gtk-query-immodules-3.0 not found anywhere"
+          
+          # Verify installation
+          echo "[INFO] Verifying GTK installation..."
+          pkg-config --exists glib-2.0 && echo "[OK] glib-2.0 found" || echo "[ERROR] glib-2.0 not found"
+          pkg-config --exists gio-2.0 && echo "[OK] gio-2.0 found" || echo "[ERROR] gio-2.0 not found"
+          pkg-config --exists gobject-2.0 && echo "[OK] gobject-2.0 found" || echo "[ERROR] gobject-2.0 not found"
+          
+          # Show pkgconfig files
+          echo "[INFO] GTK pkgconfig files:"
+          find /usr -name "*.pc" -path "*/pkgconfig/*" | grep -E "(glib|gio|gobject)" | head -10
+          
+          # Show pkg-config path
+          echo "[INFO] PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          
+          # Test pkg-config
+          echo "[INFO] Testing pkg-config:"
+          pkg-config --list-all | grep -E "(glib|gio|gobject)" | head -5
+          
+          # Setup FUSE for AppImage creation
+          echo "[INFO] Setting up FUSE for AppImage creation..."
+          sudo modprobe fuse || echo "[WARNING] Could not load fuse module"
+          sudo chmod 666 /dev/fuse || echo "[WARNING] Could not set fuse permissions"
+          sudo chown root:fuse /dev/fuse || echo "[WARNING] Could not set fuse ownership"
+          ls -la /dev/fuse || echo "[WARNING] FUSE device not found"
+          
+          # Verify linuxdeploy and plugins are available
+          echo "[INFO] Checking linuxdeploy availability..."
+          which linuxdeploy || echo "[WARNING] linuxdeploy not found in PATH"
+          echo "[INFO] Checking for linuxdeploy plugins..."
+          find /usr -name "*linuxdeploy*" 2>/dev/null | head -10
+          
+          # Install additional AppImage dependencies
+          echo "[INFO] Installing additional AppImage dependencies..."
+          sudo apt install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages \
+            appstream \
+            appstream-util \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            gstreamer1.0-tools
+          
+      - name: Install GDAL for Linux
+        run: |
+          chmod +x install-gdal.sh
+          ./install-gdal.sh
+          
+      - name: Build Linux application
+        run: |
+          # Ensure proper permissions for AppImage creation
+          sudo chmod 666 /dev/fuse || echo "Warning: Could not set fuse permissions"
+          sudo chown root:fuse /dev/fuse || echo "Warning: Could not set fuse ownership"
+          
+          # Create necessary directories for AppImage
+          mkdir -p src-tauri/target/release/bundle/appimage
+          
+          # Set proper permissions for build directory
+          sudo chown -R $USER:$USER src-tauri/target/ 2>/dev/null || echo "Warning: Could not set ownership"
+          
+          # Set pkg-config path for AppImage build
+          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"
+          
+          chmod +x .github/scripts/build.sh
+          # Load environment variables from .env file
+          if [[ -f .env ]]; then
+            export $(cat .env | grep -v '^#' | xargs)
+          fi
+          
+          # Set GDAL environment variables for Linux build
+          export GDAL_DYNAMIC="1"
+          export GDAL_STATIC="0"
+          export GDAL_VERSION="3.10.3"
+          export NO_STRIP="true"
+          
+          # Ensure pnpm is available and PATH is properly set
+          export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+          if [[ -n "$PNPM_HOME" ]]; then
+            export PATH="$PNPM_HOME:$PATH"
+          fi
+          
+          # Ensure Rust is in PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+          
+          ./.github/scripts/build.sh
+          
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: src-tauri/target/release/bundle/
+          retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+    name: Build Windows Application
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+          
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+          
+      - name: Install Pixi
+        run: |
+          irm https://pixi.sh/install.ps1 | iex
+          echo "$env:USERPROFILE\.pixi\bin" >> $env:GITHUB_PATH
+          
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        
+      - name: Install GDAL for Windows
+        run: |
+          .\install-gdal.bat
+          
+      - name: Build Windows application
+        run: |
+          # Ensure proper PATH setup first
+          echo "[INFO] Setting up PATH for Windows build..."
+          $env:PATH = "$env:PNPM_HOME;$env:PATH"
+          $env:PATH = "$env:APPDATA\npm;$env:PATH"
+          $env:PATH = "$env:USERPROFILE\.node\bin;$env:PATH"
+          $env:PATH = "$env:ProgramFiles\nodejs;$env:PATH"
+          $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+          
+          # Verify tools are available
+          echo "[INFO] Checking tool availability..."
+          try {
+            $nodeVersion = node --version
+            echo "[INFO] Node.js version: $nodeVersion"
+          } catch {
+            echo "[ERROR] Node.js not found in PATH"
+            echo "[INFO] PATH: $env:PATH"
+            exit 1
+          }
+          
+          try {
+            $pnpmVersion = pnpm --version
+            echo "[INFO] pnpm version: $pnpmVersion"
+          } catch {
+            echo "[ERROR] pnpm not found in PATH"
+            echo "[INFO] PNPM_HOME: $env:PNPM_HOME"
+            echo "[INFO] PATH: $env:PATH"
+            exit 1
+          }
+          
+          try {
+            $rustcVersion = rustc --version
+            echo "[INFO] Rustc version: $rustcVersion"
+          } catch {
+            echo "[ERROR] Rustc not found in PATH"
+            exit 1
+          }
+          
+          try {
+            $cargoVersion = cargo --version
+            echo "[INFO] Cargo version: $cargoVersion"
+          } catch {
+            echo "[ERROR] Cargo not found in PATH"
+            exit 1
+          }
+          
+          # Load environment variables from .env file
+          if (Test-Path .env) {
+            echo "[INFO] Loading environment variables from .env file..."
+            Get-Content .env | ForEach-Object {
+              if ($_ -match '^([^#][^=]+)=(.*)$') {
+                $name = $matches[1]
+                $value = $matches[2]
+                [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+                echo "[INFO] Set $name = $value"
+              }
+            }
+            echo "[INFO] GDAL_ROOT: $env:GDAL_ROOT"
+            echo "[INFO] GDAL_LIB_DIR: $env:GDAL_LIB_DIR"
+            echo "[INFO] PATH: $env:PATH"
+            
+            # Debug GDAL library files
+            echo "[INFO] Checking GDAL library files..."
+            if (Test-Path "$env:GDAL_LIB_DIR") {
+              echo "[INFO] GDAL_LIB_DIR exists, contents:"
+              Get-ChildItem "$env:GDAL_LIB_DIR\*.lib" | ForEach-Object { echo "[INFO] Found: $($_.Name)" }
+            } else {
+              echo "[WARNING] GDAL_LIB_DIR does not exist: $env:GDAL_LIB_DIR"
+            }
+            
+            if (Test-Path "$env:GDAL_ROOT\Library\lib") {
+              echo "[INFO] GDAL_ROOT\Library\lib exists, contents:"
+              Get-ChildItem "$env:GDAL_ROOT\Library\lib\*.lib" | ForEach-Object { echo "[INFO] Found: $($_.Name)" }
+            } else {
+              echo "[WARNING] GDAL_ROOT\Library\lib does not exist"
+            }
+            
+            # Set environment variables for GDAL build
+            $env:GDAL_DYNAMIC = "1"
+            $env:GDAL_STATIC = "0"
+            $env:GDAL_VERSION = "3.10.3"
+            $env:GDAL_LIB_DIR = "$env:GDAL_ROOT\Library\lib"
+            $env:GDAL_INCLUDE_DIR = "$env:GDAL_ROOT\Library\include"
+            $env:GDAL_HOME = "$env:GDAL_ROOT"
+            echo "[INFO] Set GDAL_DYNAMIC=1 for dynamic linking"
+            echo "[INFO] Set GDAL_STATIC=0 to disable static linking"
+            echo "[INFO] Set GDAL_VERSION=3.10.3 for version detection"
+            echo "[INFO] Set GDAL_LIB_DIR=$env:GDAL_LIB_DIR"
+            echo "[INFO] Set GDAL_INCLUDE_DIR=$env:GDAL_INCLUDE_DIR"
+            echo "[INFO] Set GDAL_HOME=$env:GDAL_HOME"
+          } else {
+            echo "[WARNING] .env file not found"
+          }
+          
+          echo "[INFO] Current directory: $(Get-Location)"
+          echo "[INFO] Directory contents:"
+          Get-ChildItem
+          
+          echo "[INFO] Running build..."
+          # Use full paths to all tools to avoid PATH issues
+          $pnpmPath = "$env:PNPM_HOME\pnpm.cmd"
+          $nodePath = "$env:ProgramFiles\nodejs\node.exe"
+          $cargoPath = "$env:USERPROFILE\.cargo\bin\cargo.exe"
+          $rustcPath = "$env:USERPROFILE\.cargo\bin\rustc.exe"
+          
+          if (Test-Path $pnpmPath) {
+            echo "[INFO] Using pnpm at: $pnpmPath"
+            echo "[INFO] Using Node.js at: $nodePath"
+            echo "[INFO] Using Cargo at: $cargoPath"
+            echo "[INFO] Using Rustc at: $rustcPath"
+            
+            # Set environment variables for the build process
+            $env:CARGO_HOME = "$env:USERPROFILE\.cargo"
+            $env:RUSTUP_HOME = "$env:USERPROFILE\.rustup"
+            $env:PATH = "$env:ProgramFiles\nodejs;$env:USERPROFILE\.cargo\bin;$env:PATH"
+            
+            echo "[INFO] Final environment for build:"
+            echo "[INFO] CARGO_HOME: $env:CARGO_HOME"
+            echo "[INFO] RUSTUP_HOME: $env:RUSTUP_HOME"
+            echo "[INFO] PATH: $env:PATH"
+            
+            # Verify all tools are accessible
+            if (-not (Test-Path $nodePath)) {
+              echo "[ERROR] Node.js not found at: $nodePath"
+              exit 1
+            }
+            if (-not (Test-Path $cargoPath)) {
+              echo "[ERROR] Cargo not found at: $cargoPath"
+              exit 1
+            }
+            if (-not (Test-Path $rustcPath)) {
+              echo "[ERROR] Rustc not found at: $rustcPath"
+              exit 1
+            }
+            
+            echo "[INFO] All tools verified, running build..."
+            & $pnpmPath tauri build
+          } else {
+            echo "[ERROR] pnpm not found at expected path: $pnpmPath"
+            echo "[INFO] Available pnpm locations:"
+            Get-ChildItem "$env:PNPM_HOME" -Name "pnpm*" | ForEach-Object { echo "[INFO] Found: $_" }
+            exit 1
+          }
+          
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: src-tauri/target/release/bundle/
+          retention-days: 30
+
+  create-release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: [build-linux, build-windows]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-release
+          path: linux-artifacts/
+          
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: windows-artifacts/
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            linux-artifacts/**/*.AppImage
+            linux-artifacts/**/*.deb
+            linux-artifacts/**/*.rpm
+            windows-artifacts/**/*.msi
+            windows-artifacts/**/*.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
